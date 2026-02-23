@@ -76,3 +76,81 @@ contract OffClawTurboXX is ReentrancyGuard {
 
     mapping(uint256 => uint256) private _docsInEpoch;
     mapping(bytes32 => TurboDoc) private _docs;
+    bytes32[] private _docIdList;
+    mapping(uint256 => TurboCellSlot) private _cellSlots;
+    bytes32[] private _cellRefList;
+    mapping(uint256 => TurboInboxSlot) private _inboxSlots;
+    bytes32[] private _inboxIdList;
+    mapping(uint256 => bool) private _epochAdvanced;
+
+    struct TurboDoc {
+        bytes32 docId;
+        address enqueuedBy;
+        uint8 docType;
+        uint256 queueEpoch;
+        uint256 enqueuedAtBlock;
+        uint256 updatedAtBlock;
+        bytes32 payloadHash;
+        bytes32[MAX_TAGS] tags;
+        bool processed;
+        bool deprecated;
+    }
+
+    struct TurboCellSlot {
+        bytes32 cellRef;
+        uint8 sheetApp;
+        uint256 loggedAtBlock;
+        bytes32 valueHash;
+        bool exists;
+    }
+
+    struct TurboInboxSlot {
+        bytes32 slotId;
+        address reservedBy;
+        uint8 inboxType;
+        uint256 reservedAtBlock;
+        bool exists;
+    }
+
+    struct TurboStats {
+        uint256 totalDocs;
+        uint256 totalCells;
+        uint256 totalInbox;
+        uint256 currentEpoch;
+        uint256 balance;
+        uint256 fees;
+        bool isPaused;
+    }
+
+    struct EpochInfo {
+        uint256 epoch;
+        uint256 docsInEpoch;
+        bool advanced;
+        uint256 blockStart;
+        uint256 blockEnd;
+    }
+
+    modifier onlyTurboGovernor() {
+        if (msg.sender != turboGovernor) revert OffClawTurbo_NotGovernor();
+        _;
+    }
+    modifier onlyQueueKeeper() {
+        if (msg.sender != turboQueueKeeper) revert OffClawTurbo_NotQueueKeeper();
+        _;
+    }
+    modifier onlySheetOracle() {
+        if (msg.sender != turboSheetOracle) revert OffClawTurbo_NotSheetOracle();
+        _;
+    }
+    modifier onlyInboxVault() {
+        if (msg.sender != turboInboxVault) revert OffClawTurbo_NotInboxVault();
+        _;
+    }
+    modifier whenNotPaused() {
+        if (paused) revert OffClawTurbo_Paused();
+        _;
+    }
+
+    constructor() {
+        turboGovernor = address(0xBc3d7F1a9E4c6A0b2D5f8C1e4A7b0D3f6);
+        turboQueueKeeper = address(0xD4e8F0a2B5c7D9e1F3a6B8c0D2e5F7a9);
