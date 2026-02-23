@@ -388,3 +388,81 @@ contract OffClawTurboXX is ReentrancyGuard {
         uint256 queueEpoch,
         uint256 enqueuedAtBlock,
         uint256 updatedAtBlock,
+        bytes32 payloadHash,
+        bytes32[4] memory tags,
+        bool processed,
+        bool deprecated
+    ) {
+        TurboDoc storage d = _docs[docId];
+        if (d.enqueuedAtBlock == 0) revert OffClawTurbo_DocNotFound();
+        return (
+            d.docId, d.enqueuedBy, d.docType, d.queueEpoch, d.enqueuedAtBlock, d.updatedAtBlock,
+            d.payloadHash, d.tags, d.processed, d.deprecated
+        );
+    }
+
+    function getCellSlot(uint256 slotIndex) external view returns (
+        bytes32 cellRef, uint8 sheetApp, uint256 loggedAtBlock, bytes32 valueHash, bool exists
+    ) {
+        TurboCellSlot storage c = _cellSlots[slotIndex];
+        return (c.cellRef, c.sheetApp, c.loggedAtBlock, c.valueHash, c.exists);
+    }
+
+    function getInboxSlot(uint256 slotIndex) external view returns (
+        bytes32 slotId, address reservedBy, uint8 inboxType, uint256 reservedAtBlock, bool exists
+    ) {
+        TurboInboxSlot storage s = _inboxSlots[slotIndex];
+        return (s.slotId, s.reservedBy, s.inboxType, s.reservedAtBlock, s.exists);
+    }
+
+    function docCount() external view returns (uint256) { return _docIdList.length; }
+    function docIdAt(uint256 index) external view returns (bytes32) { return _docIdList[index]; }
+    function docsInEpoch(uint256 epoch) external view returns (uint256) { return _docsInEpoch[epoch]; }
+    function cellCount() external view returns (uint256) { return _cellRefList.length; }
+    function cellRefAt(uint256 index) external view returns (bytes32) { return _cellRefList[index]; }
+    function inboxCount() external view returns (uint256) { return _inboxIdList.length; }
+    function inboxIdAt(uint256 index) external view returns (bytes32) { return _inboxIdList[index]; }
+
+    function getDocIdRange(uint256 offset, uint256 limit) external view returns (bytes32[] memory ids) {
+        uint256 n = _docIdList.length;
+        if (offset >= n) return new bytes32[](0);
+        if (offset + limit > n) limit = n - offset;
+        ids = new bytes32[](limit);
+        for (uint256 i = 0; i < limit; i++) ids[i] = _docIdList[offset + i];
+    }
+
+    function getCellRefRange(uint256 offset, uint256 limit) external view returns (bytes32[] memory refs) {
+        uint256 n = _cellRefList.length;
+        if (offset >= n) return new bytes32[](0);
+        if (offset + limit > n) limit = n - offset;
+        refs = new bytes32[](limit);
+        for (uint256 i = 0; i < limit; i++) refs[i] = _cellRefList[offset + i];
+    }
+
+    function getInboxIdRange(uint256 offset, uint256 limit) external view returns (bytes32[] memory ids) {
+        uint256 n = _inboxIdList.length;
+        if (offset >= n) return new bytes32[](0);
+        if (offset + limit > n) limit = n - offset;
+        ids = new bytes32[](limit);
+        for (uint256 i = 0; i < limit; i++) ids[i] = _inboxIdList[offset + i];
+    }
+
+    function getTurboStats() external view returns (TurboStats memory s) {
+        s = TurboStats({
+            totalDocs: _docIdList.length,
+            totalCells: _cellRefList.length,
+            totalInbox: _inboxIdList.length,
+            currentEpoch: currentEpoch,
+            balance: turboBalance,
+            fees: accumulatedFees,
+            isPaused: paused
+        });
+    }
+
+    function getEpochInfo(uint256 epoch) external view returns (EpochInfo memory info) {
+        info.epoch = epoch;
+        info.docsInEpoch = _docsInEpoch[epoch];
+        info.advanced = _epochAdvanced[epoch];
+        info.blockStart = genesisBlock + epoch * TURBO_EPOCH_BLOCKS;
+        info.blockEnd = genesisBlock + (epoch + 1) * TURBO_EPOCH_BLOCKS - 1;
+    }
