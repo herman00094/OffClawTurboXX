@@ -154,3 +154,81 @@ contract OffClawTurboXX is ReentrancyGuard {
     constructor() {
         turboGovernor = address(0xBc3d7F1a9E4c6A0b2D5f8C1e4A7b0D3f6);
         turboQueueKeeper = address(0xD4e8F0a2B5c7D9e1F3a6B8c0D2e5F7a9);
+        turboSheetOracle = address(0xE5f9A1b3C6d8E0F2a5B7c9D1e4A6b8C0);
+        turboInboxVault = address(0xF6a0B2c4D7e9F1a3B5c8D0e2F4a6B8);
+        turboFeeRecipient = address(0x0A1c3e5F8b0D2f4A6c9E1a3B5d7F0b2);
+        genesisBlock = block.number;
+        turboSeed = keccak256(abi.encodePacked(block.number, block.prevrandao, block.chainid));
+        currentEpoch = 0;
+        totalDocsQueued = 0;
+        totalCellsLogged = 0;
+        totalSlotsReserved = 0;
+        turboBalance = 0;
+        accumulatedFees = 0;
+        paused = false;
+    }
+
+    function setPaused(bool _paused) external onlyTurboGovernor {
+        paused = _paused;
+        if (_paused) emit TurboPaused(msg.sender, block.number);
+        else emit TurboUnpaused(msg.sender, block.number);
+    }
+
+    function _enqueueOne(bytes32 docId, uint8 docType, bytes32 payloadHash, bytes32[MAX_TAGS] memory tags) internal {
+        if (docId == bytes32(0)) revert OffClawTurbo_ZeroDocId();
+        if (_docs[docId].enqueuedAtBlock != 0) revert OffClawTurbo_DuplicateDocId();
+        if (_docsInEpoch[currentEpoch] >= TURBO_DOC_CAP_PER_EPOCH) revert OffClawTurbo_QueueFull();
+        if (docType > MAX_DOC_TYPE) docType = 0;
+        _docsInEpoch[currentEpoch] += 1;
+        totalDocsQueued += 1;
+        _docs[docId] = TurboDoc({
+            docId: docId,
+            enqueuedBy: msg.sender,
+            docType: docType,
+            queueEpoch: currentEpoch,
+            enqueuedAtBlock: block.number,
+            updatedAtBlock: block.number,
+            payloadHash: payloadHash,
+            tags: tags,
+            processed: false,
+            deprecated: false
+        });
+        _docIdList.push(docId);
+        emit TurboDocEnqueued(docId, msg.sender, docType, currentEpoch, payloadHash);
+    }
+
+    function enqueueDoc(bytes32 docId, uint8 docType, bytes32 payloadHash)
+        external
+        onlyTurboGovernor
+        whenNotPaused
+        nonReentrant
+    {
+        bytes32[MAX_TAGS] memory t;
+        _enqueueOne(docId, docType, payloadHash, t);
+    }
+
+    function enqueueDocWithTags(bytes32 docId, uint8 docType, bytes32 payloadHash, bytes32[4] calldata tags)
+        external
+        onlyTurboGovernor
+        whenNotPaused
+        nonReentrant
+    {
+        bytes32[MAX_TAGS] memory t;
+        for (uint256 i = 0; i < MAX_TAGS; i++) t[i] = tags[i];
+        _enqueueOne(docId, docType, payloadHash, t);
+    }
+
+    function enqueueDocBatch(bytes32[] calldata docIds, uint8[] calldata docTypes, bytes32[] calldata payloadHashes)
+        external
+        onlyTurboGovernor
+        whenNotPaused
+        nonReentrant
+    {
+        if (docIds.length == 0) revert OffClawTurbo_ZeroLength();
+        if (docIds.length > MAX_BATCH_DOCS) revert OffClawTurbo_BatchTooLarge();
+        if (docIds.length != docTypes.length || docIds.length != payloadHashes.length) revert OffClawTurbo_ArrayLengthMismatch();
+        bytes32[MAX_TAGS] memory t;
+        for (uint256 i = 0; i < docIds.length; i++) _enqueueOne(docIds[i], docTypes[i], payloadHashes[i], t);
+        emit TurboDocBatchEnqueued(docIds, msg.sender, currentEpoch);
+    }
+
