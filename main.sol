@@ -232,3 +232,81 @@ contract OffClawTurboXX is ReentrancyGuard {
         emit TurboDocBatchEnqueued(docIds, msg.sender, currentEpoch);
     }
 
+    function markDocProcessed(bytes32 docId) external onlyQueueKeeper nonReentrant {
+        if (docId == bytes32(0)) revert OffClawTurbo_ZeroDocId();
+        TurboDoc storage d = _docs[docId];
+        if (d.enqueuedAtBlock == 0) revert OffClawTurbo_DocNotFound();
+        if (d.processed) revert OffClawTurbo_AlreadyProcessed();
+        d.processed = true;
+        emit TurboDocProcessed(docId, msg.sender, block.number);
+    }
+
+    function markDocDeprecated(bytes32 docId) external onlyTurboGovernor whenNotPaused nonReentrant {
+        if (docId == bytes32(0)) revert OffClawTurbo_ZeroDocId();
+        TurboDoc storage d = _docs[docId];
+        if (d.enqueuedAtBlock == 0) revert OffClawTurbo_DocNotFound();
+        d.deprecated = true;
+        emit TurboDocDeprecated(docId, msg.sender, block.number);
+    }
+
+    function updateDocPayload(bytes32 docId, bytes32 newPayloadHash) external onlyTurboGovernor whenNotPaused nonReentrant {
+        if (docId == bytes32(0)) revert OffClawTurbo_ZeroDocId();
+        TurboDoc storage d = _docs[docId];
+        if (d.enqueuedAtBlock == 0) revert OffClawTurbo_DocNotFound();
+        if (d.deprecated) revert OffClawTurbo_DocDeprecated();
+        d.payloadHash = newPayloadHash;
+        d.updatedAtBlock = block.number;
+        emit TurboDocUpdated(docId, newPayloadHash, block.number);
+    }
+
+    function _logCellOne(bytes32 cellRef, uint8 sheetApp, bytes32 valueHash) internal {
+        if (sheetApp >= TURBO_CELL_SLOTS) sheetApp = 0;
+        uint256 slotIndex = uint256(keccak256(abi.encodePacked(cellRef))) % TURBO_CELL_SLOTS;
+        while (_cellSlots[slotIndex].exists) slotIndex = (slotIndex + 1) % TURBO_CELL_SLOTS;
+        _cellSlots[slotIndex] = TurboCellSlot({
+            cellRef: cellRef,
+            sheetApp: sheetApp,
+            loggedAtBlock: block.number,
+            valueHash: valueHash,
+            exists: true
+        });
+        _cellRefList.push(cellRef);
+        totalCellsLogged += 1;
+        emit TurboCellLogged(cellRef, sheetApp, block.number, valueHash);
+    }
+
+    function logSheetCell(bytes32 cellRef, uint8 sheetApp, bytes32 valueHash)
+        external
+        onlySheetOracle
+        whenNotPaused
+        nonReentrant
+    {
+        _logCellOne(cellRef, sheetApp, valueHash);
+    }
+
+    function logSheetCellBatch(bytes32[] calldata cellRefs, uint8[] calldata sheetApps, bytes32[] calldata valueHashes)
+        external
+        onlySheetOracle
+        whenNotPaused
+        nonReentrant
+    {
+        if (cellRefs.length == 0) revert OffClawTurbo_ZeroLength();
+        if (cellRefs.length > MAX_BATCH_CELLS) revert OffClawTurbo_BatchTooLarge();
+        if (cellRefs.length != sheetApps.length || cellRefs.length != valueHashes.length) revert OffClawTurbo_ArrayLengthMismatch();
+        for (uint256 i = 0; i < cellRefs.length; i++) _logCellOne(cellRefs[i], sheetApps[i], valueHashes[i]);
+        emit TurboCellBatchLogged(cellRefs, msg.sender, cellRefs.length);
+    }
+
+    function _reserveOne(bytes32 slotId, uint8 inboxType) internal {
+        if (slotId == bytes32(0)) revert OffClawTurbo_ZeroDocId();
+        uint256 slotIndex = uint256(keccak256(abi.encodePacked(slotId))) % TURBO_INBOX_SLOTS;
+        while (_inboxSlots[slotIndex].exists) slotIndex = (slotIndex + 1) % TURBO_INBOX_SLOTS;
+        _inboxSlots[slotIndex] = TurboInboxSlot({
+            slotId: slotId,
+            reservedBy: msg.sender,
+            inboxType: inboxType,
+            reservedAtBlock: block.number,
+            exists: true
+        });
+        _inboxIdList.push(slotId);
+        totalSlotsReserved += 1;
