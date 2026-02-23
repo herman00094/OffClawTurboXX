@@ -466,3 +466,81 @@ contract OffClawTurboXX is ReentrancyGuard {
         info.blockStart = genesisBlock + epoch * TURBO_EPOCH_BLOCKS;
         info.blockEnd = genesisBlock + (epoch + 1) * TURBO_EPOCH_BLOCKS - 1;
     }
+
+    function getDocIdsInEpoch(uint256 epoch) external view returns (bytes32[] memory docIds) {
+        uint256 n = _docIdList.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].queueEpoch == epoch) count++;
+        }
+        docIds = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].queueEpoch == epoch) {
+                docIds[count] = _docIdList[i];
+                count++;
+            }
+        }
+    }
+
+    function getCellRefsBySheetApp(uint8 sheetApp) external view returns (bytes32[] memory refs) {
+        uint256 n = _cellRefList.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (_cellSlots[i].exists && _cellSlots[i].sheetApp == sheetApp) count++;
+        }
+        refs = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (_cellSlots[i].exists && _cellSlots[i].sheetApp == sheetApp) {
+                refs[count] = _cellSlots[i].cellRef;
+                count++;
+            }
+        }
+    }
+
+    function docExists(bytes32 docId) external view returns (bool) { return _docs[docId].enqueuedAtBlock != 0; }
+    function isDocProcessed(bytes32 docId) external view returns (bool) { return _docs[docId].processed; }
+    function isDocDeprecated(bytes32 docId) external view returns (bool) { return _docs[docId].deprecated; }
+    function getDocPayloadHash(bytes32 docId) external view returns (bytes32) { return _docs[docId].payloadHash; }
+    function getDocTags(bytes32 docId) external view returns (bytes32[4] memory) {
+        if (_docs[docId].enqueuedAtBlock == 0) revert OffClawTurbo_DocNotFound();
+        return _docs[docId].tags;
+    }
+    function getDocUpdatedAtBlock(bytes32 docId) external view returns (uint256) { return _docs[docId].updatedAtBlock; }
+    function canBumpEpoch() external view returns (bool) {
+        if (currentEpoch >= MAX_TURBO_EPOCHS) return false;
+        if (_epochAdvanced[currentEpoch]) return false;
+        return block.number >= genesisBlock + (currentEpoch + 1) * TURBO_EPOCH_BLOCKS;
+    }
+    function nextEpochBlock() external view returns (uint256) {
+        return genesisBlock + (currentEpoch + 1) * TURBO_EPOCH_BLOCKS;
+    }
+    function epochBlockStart(uint256 epoch) external view returns (uint256) {
+        return genesisBlock + epoch * TURBO_EPOCH_BLOCKS;
+    }
+    function epochBlockEnd(uint256 epoch) external view returns (uint256) {
+        return genesisBlock + (epoch + 1) * TURBO_EPOCH_BLOCKS - 1;
+    }
+    function totalContractBalance() external view returns (uint256) { return turboBalance + accumulatedFees; }
+    function getTurboDomain() external pure returns (bytes32) { return TURBO_DOMAIN; }
+    function getFeeBasisPoints() external pure returns (uint256) { return FEE_BASIS_POINTS; }
+    function getFeeRecipient() external view returns (address) { return turboFeeRecipient; }
+    function getRoles() external view returns (
+        address gov, address keeper, address oracle, address vault, address feeRec
+    ) {
+        return (turboGovernor, turboQueueKeeper, turboSheetOracle, turboInboxVault, turboFeeRecipient);
+    }
+    function isGovernor(address a) external view returns (bool) { return a == turboGovernor; }
+    function isQueueKeeper(address a) external view returns (bool) { return a == turboQueueKeeper; }
+    function isSheetOracle(address a) external view returns (bool) { return a == turboSheetOracle; }
+    function isInboxVault(address a) external view returns (bool) { return a == turboInboxVault; }
+    function isEpochAdvanced(uint256 epoch) external view returns (bool) { return _epochAdvanced[epoch]; }
+    function getGenesisBlock() external view returns (uint256) { return genesisBlock; }
+    function getTurboSeed() external view returns (bytes32) { return turboSeed; }
+    function getCurrentEpoch() external view returns (uint256) { return currentEpoch; }
+    function getTurboBalance() external view returns (uint256) { return turboBalance; }
+    function getAccumulatedFees() external view returns (uint256) { return accumulatedFees; }
+    function getMaxBatchDocs() external pure returns (uint256) { return MAX_BATCH_DOCS; }
+    function getMaxBatchCells() external pure returns (uint256) { return MAX_BATCH_CELLS; }
+    function getMaxBatchSlots() external pure returns (uint256) { return MAX_BATCH_SLOTS; }
