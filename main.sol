@@ -310,3 +310,81 @@ contract OffClawTurboXX is ReentrancyGuard {
         });
         _inboxIdList.push(slotId);
         totalSlotsReserved += 1;
+        emit TurboSlotReserved(slotId, msg.sender, inboxType, block.number);
+    }
+
+    function reserveInboxSlot(bytes32 slotId, uint8 inboxType) external onlyInboxVault whenNotPaused nonReentrant {
+        _reserveOne(slotId, inboxType);
+    }
+
+    function reserveInboxSlotBatch(bytes32[] calldata slotIds, uint8[] calldata inboxTypes)
+        external
+        onlyInboxVault
+        whenNotPaused
+        nonReentrant
+    {
+        if (slotIds.length == 0) revert OffClawTurbo_ZeroLength();
+        if (slotIds.length > MAX_BATCH_SLOTS) revert OffClawTurbo_BatchTooLarge();
+        if (slotIds.length != inboxTypes.length) revert OffClawTurbo_ArrayLengthMismatch();
+        for (uint256 i = 0; i < slotIds.length; i++) _reserveOne(slotIds[i], inboxTypes[i]);
+        emit TurboSlotBatchReserved(slotIds, msg.sender, slotIds.length);
+    }
+
+    function bumpTurboEpoch() external onlySheetOracle nonReentrant {
+        if (block.number < genesisBlock + (currentEpoch + 1) * TURBO_EPOCH_BLOCKS) revert OffClawTurbo_EpochWindowNotReached();
+        if (currentEpoch >= MAX_TURBO_EPOCHS) return;
+        if (_epochAdvanced[currentEpoch]) return;
+        uint256 prev = currentEpoch;
+        currentEpoch += 1;
+        _epochAdvanced[prev] = true;
+        emit TurboEpochBumped(prev, currentEpoch, block.number);
+    }
+
+    function topTurboTreasury() external payable nonReentrant {
+        if (msg.value == 0) return;
+        uint256 fee = (msg.value * FEE_BASIS_POINTS) / BASIS_DENOM;
+        uint256 toBalance = msg.value - fee;
+        turboBalance += toBalance;
+        if (fee > 0 && turboFeeRecipient != address(0)) accumulatedFees += fee;
+        else turboBalance += fee;
+        emit TurboTreasuryTopped(msg.value, msg.sender, turboBalance);
+    }
+
+    function withdrawTurboTreasury(address payable to, uint256 amount) external onlyTurboGovernor nonReentrant {
+        if (amount == 0) revert OffClawTurbo_WithdrawZero();
+        if (amount > turboBalance) amount = turboBalance;
+        turboBalance -= amount;
+        (bool ok,) = to.call{value: amount}("");
+        require(ok, "OffClawTurbo: transfer failed");
+        emit TurboTreasuryWithdrawn(to, amount, block.number);
+    }
+
+    function withdrawTurboFees(address payable to) external onlyTurboGovernor nonReentrant {
+        uint256 amount = accumulatedFees;
+        if (amount == 0) revert OffClawTurbo_WithdrawZero();
+        accumulatedFees = 0;
+        (bool ok,) = to.call{value: amount}("");
+        require(ok, "OffClawTurbo: fee transfer failed");
+        emit TurboFeesWithdrawn(to, amount, block.number);
+    }
+
+    receive() external payable {
+        turboBalance += msg.value;
+        emit TurboTreasuryTopped(msg.value, msg.sender, turboBalance);
+    }
+
+    function getDoc(bytes32 docId) external view returns (
+        bytes32 id, address enqueuedBy, uint8 docType, uint256 queueEpoch, uint256 enqueuedAtBlock, bytes32 payloadHash, bool processed
+    ) {
+        TurboDoc storage d = _docs[docId];
+        if (d.enqueuedAtBlock == 0) revert OffClawTurbo_DocNotFound();
+        return (d.docId, d.enqueuedBy, d.docType, d.queueEpoch, d.enqueuedAtBlock, d.payloadHash, d.processed);
+    }
+
+    function getDocFull(bytes32 docId) external view returns (
+        bytes32 id,
+        address enqueuedBy,
+        uint8 docType,
+        uint256 queueEpoch,
+        uint256 enqueuedAtBlock,
+        uint256 updatedAtBlock,
