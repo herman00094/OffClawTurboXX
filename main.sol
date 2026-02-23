@@ -544,3 +544,81 @@ contract OffClawTurboXX is ReentrancyGuard {
     function getMaxBatchDocs() external pure returns (uint256) { return MAX_BATCH_DOCS; }
     function getMaxBatchCells() external pure returns (uint256) { return MAX_BATCH_CELLS; }
     function getMaxBatchSlots() external pure returns (uint256) { return MAX_BATCH_SLOTS; }
+    function getTurboDocCapPerEpoch() external pure returns (uint256) { return TURBO_DOC_CAP_PER_EPOCH; }
+    function getTurboCellSlots() external pure returns (uint256) { return TURBO_CELL_SLOTS; }
+    function getTurboInboxSlots() external pure returns (uint256) { return TURBO_INBOX_SLOTS; }
+    function getTurboEpochBlocks() external pure returns (uint256) { return TURBO_EPOCH_BLOCKS; }
+    function getMaxTurboEpochs() external pure returns (uint256) { return MAX_TURBO_EPOCHS; }
+    function getMaxDocType() external pure returns (uint256) { return MAX_DOC_TYPE; }
+    function getMaxTags() external pure returns (uint256) { return MAX_TAGS; }
+    function getBasisDenom() external pure returns (uint256) { return BASIS_DENOM; }
+
+    function getDocsBatch(bytes32[] calldata docIds) external view returns (
+        address[] memory enqueuedBys,
+        uint8[] memory docTypes,
+        uint256[] memory queueEpochs,
+        uint256[] memory enqueuedAtBlocks,
+        bytes32[] memory payloadHashes,
+        bool[] memory processeds,
+        bool[] memory deprecateds
+    ) {
+        uint256 n = docIds.length;
+        enqueuedBys = new address[](n);
+        docTypes = new uint8[](n);
+        queueEpochs = new uint256[](n);
+        enqueuedAtBlocks = new uint256[](n);
+        payloadHashes = new bytes32[](n);
+        processeds = new bool[](n);
+        deprecateds = new bool[](n);
+        for (uint256 i = 0; i < n; i++) {
+            TurboDoc storage d = _docs[docIds[i]];
+            if (d.enqueuedAtBlock != 0) {
+                enqueuedBys[i] = d.enqueuedBy;
+                docTypes[i] = d.docType;
+                queueEpochs[i] = d.queueEpoch;
+                enqueuedAtBlocks[i] = d.enqueuedAtBlock;
+                payloadHashes[i] = d.payloadHash;
+                processeds[i] = d.processed;
+                deprecateds[i] = d.deprecated;
+            }
+        }
+    }
+
+    function processedDocsCount() external view returns (uint256 count) {
+        uint256 n = _docIdList.length;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].processed) count++;
+        }
+    }
+
+    function pendingDocsCount() external view returns (uint256 count) {
+        uint256 n = _docIdList.length;
+        for (uint256 i = 0; i < n; i++) {
+            if (!_docs[_docIdList[i]].processed) count++;
+        }
+    }
+
+    function deprecatedDocsCount() external view returns (uint256 count) {
+        uint256 n = _docIdList.length;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].deprecated) count++;
+        }
+    }
+
+    function getDocTypeCounts() external view returns (uint256[16] memory counts) {
+        uint256 n = _docIdList.length;
+        for (uint256 i = 0; i < n; i++) {
+            uint8 t = _docs[_docIdList[i]].docType;
+            if (t <= MAX_DOC_TYPE) counts[t]++;
+        }
+    }
+
+    function findCellSlotByRef(bytes32 cellRef) external view returns (uint256 slotIndex, bool found) {
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (_cellSlots[i].exists && _cellSlots[i].cellRef == cellRef) return (i, true);
+        }
+        return (0, false);
+    }
+
+    function findInboxSlotById(bytes32 slotId) external view returns (uint256 slotIndex, bool found) {
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
