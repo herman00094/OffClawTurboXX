@@ -1168,3 +1168,81 @@ contract OffClawTurboXX is ReentrancyGuard {
 
     function getDocIdsInEpochRange(uint256 epochStart, uint256 epochEnd) external view returns (bytes32[] memory docIds) {
         uint256 n = _docIdList.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            uint256 e = _docs[_docIdList[i]].queueEpoch;
+            if (e >= epochStart && e <= epochEnd) count++;
+        }
+        docIds = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            uint256 e = _docs[_docIdList[i]].queueEpoch;
+            if (e >= epochStart && e <= epochEnd) {
+                docIds[count] = _docIdList[i];
+                count++;
+            }
+        }
+    }
+
+    function getCellRefsPaginatedBySheetApp(uint8 sheetApp, uint256 offset, uint256 limit) external view returns (
+        bytes32[] memory refs,
+        uint256[] memory loggedAtBlocks
+    ) {
+        uint256[] memory indices = new uint256[](TURBO_CELL_SLOTS);
+        uint256 count = 0;
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (_cellSlots[i].exists && _cellSlots[i].sheetApp == sheetApp) {
+                indices[count] = i;
+                count++;
+            }
+        }
+        if (offset >= count) {
+            return (new bytes32[](0), new uint256[](0));
+        }
+        if (offset + limit > count) limit = count - offset;
+        refs = new bytes32[](limit);
+        loggedAtBlocks = new uint256[](limit);
+        for (uint256 i = 0; i < limit; i++) {
+            uint256 idx = indices[offset + i];
+            refs[i] = _cellSlots[idx].cellRef;
+            loggedAtBlocks[i] = _cellSlots[idx].loggedAtBlock;
+        }
+    }
+
+    function getInboxSlotsPaginatedByType(uint8 inboxType, uint256 offset, uint256 limit) external view returns (
+        bytes32[] memory slotIds,
+        address[] memory reservedBys,
+        uint256[] memory reservedAtBlocks
+    ) {
+        uint256[] memory indices = new uint256[](TURBO_INBOX_SLOTS);
+        uint256 count = 0;
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists && _inboxSlots[i].inboxType == inboxType) {
+                indices[count] = i;
+                count++;
+            }
+        }
+        if (offset >= count) {
+            return (new bytes32[](0), new address[](0), new uint256[](0));
+        }
+        if (offset + limit > count) limit = count - offset;
+        slotIds = new bytes32[](limit);
+        reservedBys = new address[](limit);
+        reservedAtBlocks = new uint256[](limit);
+        for (uint256 i = 0; i < limit; i++) {
+            uint256 idx = indices[offset + i];
+            slotIds[i] = _inboxSlots[idx].slotId;
+            reservedBys[i] = _inboxSlots[idx].reservedBy;
+            reservedAtBlocks[i] = _inboxSlots[idx].reservedAtBlock;
+        }
+    }
+
+    function getMultipleDocsFull(bytes32[] calldata docIds) external view returns (
+        address[] memory enqueuedBys,
+        uint8[] memory docTypes,
+        uint256[] memory queueEpochs,
+        uint256[] memory enqueuedAtBlocks,
+        bytes32[] memory payloadHashes,
+        bool[] memory processeds,
+        bool[] memory deprecateds,
+        uint256[] memory updatedAtBlocks,
