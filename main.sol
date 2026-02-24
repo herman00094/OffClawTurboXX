@@ -778,3 +778,81 @@ contract OffClawTurboXX is ReentrancyGuard {
                 docIds[count] = _docIdList[i];
                 count++;
             }
+        }
+    }
+
+    function getDocIdsProcessed() external view returns (bytes32[] memory docIds) {
+        uint256 n = _docIdList.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].processed) count++;
+        }
+        docIds = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].processed) {
+                docIds[count] = _docIdList[i];
+                count++;
+            }
+        }
+    }
+
+    function getDocIdsPending() external view returns (bytes32[] memory docIds) {
+        uint256 n = _docIdList.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (!_docs[_docIdList[i]].processed) count++;
+        }
+        docIds = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (!_docs[_docIdList[i]].processed) {
+                docIds[count] = _docIdList[i];
+                count++;
+            }
+        }
+    }
+
+    function getDocIdsDeprecated() external view returns (bytes32[] memory docIds) {
+        uint256 n = _docIdList.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].deprecated) count++;
+        }
+        docIds = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].deprecated) {
+                docIds[count] = _docIdList[i];
+                count++;
+            }
+        }
+    }
+
+    function getDocEnqueuedBy(bytes32 docId) external view returns (address) {
+        if (_docs[docId].enqueuedAtBlock == 0) revert OffClawTurbo_DocNotFound();
+        return _docs[docId].enqueuedBy;
+    }
+
+    function getDocType(bytes32 docId) external view returns (uint8) {
+        if (_docs[docId].enqueuedAtBlock == 0) revert OffClawTurbo_DocNotFound();
+        return _docs[docId].docType;
+    }
+
+    function getDocQueueEpoch(bytes32 docId) external view returns (uint256) {
+        if (_docs[docId].enqueuedAtBlock == 0) revert OffClawTurbo_DocNotFound();
+        return _docs[docId].queueEpoch;
+    }
+
+    function getDocEnqueuedAtBlock(bytes32 docId) external view returns (uint256) {
+        if (_docs[docId].enqueuedAtBlock == 0) revert OffClawTurbo_DocNotFound();
+        return _docs[docId].enqueuedAtBlock;
+    }
+
+    function hasDoc(bytes32 docId) external view returns (bool) {
+        return _docs[docId].enqueuedAtBlock != 0;
+    }
+
+    function hasDocTag(bytes32 docId, uint256 tagIndex, bytes32 tagValue) external view returns (bool) {
+        if (_docs[docId].enqueuedAtBlock == 0) revert OffClawTurbo_DocNotFound();
+        if (tagIndex >= MAX_TAGS) return false;
