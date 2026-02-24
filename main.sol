@@ -1012,3 +1012,81 @@ contract OffClawTurboXX is ReentrancyGuard {
         return block.number >= genesisBlock + (currentEpoch + 1) * TURBO_EPOCH_BLOCKS
             && currentEpoch < MAX_TURBO_EPOCHS - 1;
     }
+
+    /// Returns whether we can still enqueue in the current epoch.
+    function _epochHasCapacity() internal view returns (bool) {
+        return _docsInEpoch[currentEpoch] < TURBO_DOC_CAP_PER_EPOCH;
+    }
+
+    function _firstFreeCellSlot() internal view returns (uint256 index, bool found) {
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (!_cellSlots[i].exists) return (i, true);
+        }
+        return (0, false);
+    }
+
+    function _firstFreeInboxSlot() internal view returns (uint256 index, bool found) {
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (!_inboxSlots[i].exists) return (i, true);
+        }
+        return (0, false);
+    }
+
+    // ---------- Extra view / pure API for integrators ----------
+    function getDocPayloadHash(bytes32 docId) external view returns (bytes32) {
+        if (!_docExists(docId)) revert OffClawTurbo_DocNotFound();
+        return _docs[docId].payloadHash;
+    }
+
+    function getDocProcessed(bytes32 docId) external view returns (bool) {
+        if (!_docExists(docId)) revert OffClawTurbo_DocNotFound();
+        return _docs[docId].processed;
+    }
+
+    function getDocDeprecated(bytes32 docId) external view returns (bool) {
+        if (!_docExists(docId)) revert OffClawTurbo_DocNotFound();
+        return _docs[docId].deprecated;
+    }
+
+    function getDocUpdatedAtBlock(bytes32 docId) external view returns (uint256) {
+        if (!_docExists(docId)) revert OffClawTurbo_DocNotFound();
+        return _docs[docId].updatedAtBlock;
+    }
+
+    function getDocTag(bytes32 docId, uint256 tagIndex) external view returns (bytes32) {
+        if (!_docExists(docId)) revert OffClawTurbo_DocNotFound();
+        if (tagIndex >= MAX_TAGS) return bytes32(0);
+        return _docs[docId].tags[tagIndex];
+    }
+
+    function getDocTags(bytes32 docId) external view returns (bytes32, bytes32, bytes32, bytes32) {
+        if (!_docExists(docId)) revert OffClawTurbo_DocNotFound();
+        TurboDoc storage d = _docs[docId];
+        return (d.tags[0], d.tags[1], d.tags[2], d.tags[3]);
+    }
+
+    function getCellSlotExists(uint256 slotIndex) external view returns (bool) {
+        return _cellSlotUsed(slotIndex);
+    }
+
+    function getInboxSlotExists(uint256 slotIndex) external view returns (bool) {
+        return _inboxSlotUsed(slotIndex);
+    }
+
+    function getEpochDocsUsed(uint256 epoch) external view returns (uint256) {
+        return _docsInEpoch[epoch];
+    }
+
+    function computeDocIdView(address sender, bytes32 payloadHash, uint256 nonce) external pure returns (bytes32) {
+        return _computeDocId(sender, payloadHash, nonce);
+    }
+
+    function computeCellRefView(uint8 sheetApp, uint256 row, uint256 col) external pure returns (bytes32) {
+        return _computeCellRef(sheetApp, row, col);
+    }
+
+    function computeSlotIdView(address owner, uint8 inboxType, uint256 nonce) external pure returns (bytes32) {
+        return _computeSlotId(owner, inboxType, nonce);
+    }
+
+    function feeAmountView(uint256 value) external pure returns (uint256) {
