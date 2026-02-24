@@ -1324,3 +1324,81 @@ contract OffClawTurboXX is ReentrancyGuard {
 
     function getInboxSlotRaw(uint256 slotIndex) external view returns (
         bool exists,
+        bytes32 slotId,
+        address reservedBy,
+        uint8 inboxType,
+        uint256 reservedAtBlock
+    ) {
+        if (slotIndex >= TURBO_INBOX_SLOTS) return (false, bytes32(0), address(0), 0, 0);
+        TurboInboxSlot storage s = _inboxSlots[slotIndex];
+        return (s.exists, s.slotId, s.reservedBy, s.inboxType, s.reservedAtBlock);
+    }
+
+    function getUsedCellSlotIndices() external view returns (uint256[] memory indices) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (_cellSlots[i].exists) count++;
+        }
+        indices = new uint256[](count);
+        count = 0;
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (_cellSlots[i].exists) {
+                indices[count] = i;
+                count++;
+            }
+        }
+    }
+
+    function getUsedInboxSlotIndices() external view returns (uint256[] memory indices) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists) count++;
+        }
+        indices = new uint256[](count);
+        count = 0;
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists) {
+                indices[count] = i;
+                count++;
+            }
+        }
+    }
+
+    function getDocIdsEnqueuedBy(address enqueuedBy) external view returns (bytes32[] memory docIds) {
+        uint256 n = _docIdList.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].enqueuedBy == enqueuedBy) count++;
+        }
+        docIds = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].enqueuedBy == enqueuedBy) {
+                docIds[count] = _docIdList[i];
+                count++;
+            }
+        }
+    }
+
+    function getInboxSlotsReservedBy(address reservedBy) external view returns (bytes32[] memory slotIds) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists && _inboxSlots[i].reservedBy == reservedBy) count++;
+        }
+        slotIds = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists && _inboxSlots[i].reservedBy == reservedBy) {
+                slotIds[count] = _inboxSlots[i].slotId;
+                count++;
+            }
+        }
+    }
+
+    function countDocsEnqueuedBy(address enqueuedBy) external view returns (uint256) {
+        uint256 n = _docIdList.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].enqueuedBy == enqueuedBy) count++;
+        }
+        return count;
