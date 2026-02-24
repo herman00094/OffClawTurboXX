@@ -1246,3 +1246,81 @@ contract OffClawTurboXX is ReentrancyGuard {
         bool[] memory processeds,
         bool[] memory deprecateds,
         uint256[] memory updatedAtBlocks,
+        bytes32[4][] memory tagsList
+    ) {
+        uint256 n = docIds.length;
+        enqueuedBys = new address[](n);
+        docTypes = new uint8[](n);
+        queueEpochs = new uint256[](n);
+        enqueuedAtBlocks = new uint256[](n);
+        payloadHashes = new bytes32[](n);
+        processeds = new bool[](n);
+        deprecateds = new bool[](n);
+        updatedAtBlocks = new uint256[](n);
+        tagsList = new bytes32[4][](n);
+        for (uint256 i = 0; i < n; i++) {
+            TurboDoc storage d = _docs[docIds[i]];
+            if (d.enqueuedAtBlock != 0) {
+                enqueuedBys[i] = d.enqueuedBy;
+                docTypes[i] = d.docType;
+                queueEpochs[i] = d.queueEpoch;
+                enqueuedAtBlocks[i] = d.enqueuedAtBlock;
+                payloadHashes[i] = d.payloadHash;
+                processeds[i] = d.processed;
+                deprecateds[i] = d.deprecated;
+                updatedAtBlocks[i] = d.updatedAtBlock;
+                tagsList[i] = d.tags;
+            }
+        }
+    }
+
+    function getTurboSummary() external view returns (
+        uint256 docsQueued,
+        uint256 cellsLogged,
+        uint256 slotsReserved,
+        uint256 epoch,
+        uint256 balance,
+        uint256 fees,
+        bool isPaused,
+        uint256 docListLen,
+        uint256 cellListLen,
+        uint256 inboxListLen
+    ) {
+        docsQueued = totalDocsQueued;
+        cellsLogged = totalCellsLogged;
+        slotsReserved = totalSlotsReserved;
+        epoch = currentEpoch;
+        balance = turboBalance;
+        fees = accumulatedFees;
+        isPaused = paused;
+        docListLen = _docIdList.length;
+        cellListLen = _cellRefList.length;
+        inboxListLen = _inboxIdList.length;
+    }
+
+    function isGovernor(address account) external view returns (bool) { return account == turboGovernor; }
+    function isQueueKeeper(address account) external view returns (bool) { return account == turboQueueKeeper; }
+    function isSheetOracle(address account) external view returns (bool) { return account == turboSheetOracle; }
+    function isInboxVault(address account) external view returns (bool) { return account == turboInboxVault; }
+    function isFeeRecipient(address account) external view returns (bool) { return account == turboFeeRecipient; }
+
+    function safeDocType(uint8 t) external pure returns (bool) { return _safeDocType(t); }
+    function docExists(bytes32 docId) external view returns (bool) { return _docExists(docId); }
+    function docProcessed(bytes32 docId) external view returns (bool) { return _docProcessed(docId); }
+    function docDeprecated(bytes32 docId) external view returns (bool) { return _docDeprecated(docId); }
+
+    // ---------- Additional V2 view API ----------
+    function getCellSlotRaw(uint256 slotIndex) external view returns (
+        bool exists,
+        bytes32 cellRef,
+        uint8 sheetApp,
+        uint256 loggedAtBlock,
+        bytes32 valueHash
+    ) {
+        if (slotIndex >= TURBO_CELL_SLOTS) return (false, bytes32(0), 0, 0, bytes32(0));
+        TurboCellSlot storage c = _cellSlots[slotIndex];
+        return (c.exists, c.cellRef, c.sheetApp, c.loggedAtBlock, c.valueHash);
+    }
+
+    function getInboxSlotRaw(uint256 slotIndex) external view returns (
+        bool exists,
