@@ -700,3 +700,81 @@ contract OffClawTurboXX is ReentrancyGuard {
         uint256 used = _docsInEpoch[currentEpoch];
         if (used >= cap) return 0;
         return cap - used;
+    }
+
+    function inEpochWindow() external view returns (bool) {
+        return block.number >= genesisBlock + (currentEpoch + 1) * TURBO_EPOCH_BLOCKS;
+    }
+
+    function constantTurboDocCap() external pure returns (uint256) { return TURBO_DOC_CAP_PER_EPOCH; }
+    function constantTurboCellSlots() external pure returns (uint256) { return TURBO_CELL_SLOTS; }
+    function constantTurboInboxSlots() external pure returns (uint256) { return TURBO_INBOX_SLOTS; }
+    function constantEpochBlocks() external pure returns (uint256) { return TURBO_EPOCH_BLOCKS; }
+    function constantMaxEpochs() external pure returns (uint256) { return MAX_TURBO_EPOCHS; }
+    function constantFeeBasis() external pure returns (uint256) { return FEE_BASIS_POINTS; }
+    function constantBasisDenom() external pure returns (uint256) { return BASIS_DENOM; }
+    function nullBytes32() external pure returns (bytes32) { return bytes32(0); }
+
+    function getCellsBatch(uint256[] calldata slotIndices) external view returns (
+        bytes32[] memory cellRefs,
+        uint8[] memory sheetApps,
+        uint256[] memory loggedAtBlocks,
+        bytes32[] memory valueHashes,
+        bool[] memory existFlags
+    ) {
+        uint256 n = slotIndices.length;
+        cellRefs = new bytes32[](n);
+        sheetApps = new uint8[](n);
+        loggedAtBlocks = new uint256[](n);
+        valueHashes = new bytes32[](n);
+        existFlags = new bool[](n);
+        for (uint256 i = 0; i < n; i++) {
+            TurboCellSlot storage c = _cellSlots[slotIndices[i]];
+            existFlags[i] = c.exists;
+            if (c.exists) {
+                cellRefs[i] = c.cellRef;
+                sheetApps[i] = c.sheetApp;
+                loggedAtBlocks[i] = c.loggedAtBlock;
+                valueHashes[i] = c.valueHash;
+            }
+        }
+    }
+
+    function getInboxBatch(uint256[] calldata slotIndices) external view returns (
+        bytes32[] memory slotIds,
+        address[] memory reservedBys,
+        uint8[] memory inboxTypes,
+        uint256[] memory reservedAtBlocks,
+        bool[] memory existFlags
+    ) {
+        uint256 n = slotIndices.length;
+        slotIds = new bytes32[](n);
+        reservedBys = new address[](n);
+        inboxTypes = new uint8[](n);
+        reservedAtBlocks = new uint256[](n);
+        existFlags = new bool[](n);
+        for (uint256 i = 0; i < n; i++) {
+            TurboInboxSlot storage s = _inboxSlots[slotIndices[i]];
+            existFlags[i] = s.exists;
+            if (s.exists) {
+                slotIds[i] = s.slotId;
+                reservedBys[i] = s.reservedBy;
+                inboxTypes[i] = s.inboxType;
+                reservedAtBlocks[i] = s.reservedAtBlock;
+            }
+        }
+    }
+
+    function getDocIdsByType(uint8 docType) external view returns (bytes32[] memory docIds) {
+        uint256 n = _docIdList.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].docType == docType) count++;
+        }
+        docIds = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].docType == docType) {
+                docIds[count] = _docIdList[i];
+                count++;
+            }
