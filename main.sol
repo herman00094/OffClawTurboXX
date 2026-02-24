@@ -1480,3 +1480,81 @@ contract OffClawTurboXX is ReentrancyGuard {
             if (_docs[_docIdList[i]].enqueuedAtBlock > afterBlock) {
                 docIds[count] = _docIdList[i];
                 count++;
+            }
+        }
+    }
+
+    function getCellRefsLoggedAfterBlock(uint256 afterBlock) external view returns (bytes32[] memory refs) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (_cellSlots[i].exists && _cellSlots[i].loggedAtBlock > afterBlock) count++;
+        }
+        refs = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (_cellSlots[i].exists && _cellSlots[i].loggedAtBlock > afterBlock) {
+                refs[count] = _cellSlots[i].cellRef;
+                count++;
+            }
+        }
+    }
+
+    function getInboxSlotsReservedAfterBlock(uint256 afterBlock) external view returns (bytes32[] memory slotIds) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists && _inboxSlots[i].reservedAtBlock > afterBlock) count++;
+        }
+        slotIds = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists && _inboxSlots[i].reservedAtBlock > afterBlock) {
+                slotIds[count] = _inboxSlots[i].slotId;
+                count++;
+            }
+        }
+    }
+
+    function hasAnyDocInEpoch(uint256 epoch) external view returns (bool) {
+        return _docsInEpoch[epoch] > 0;
+    }
+
+    function getEpochsWithDocs(uint256 maxEpochs) external view returns (uint256[] memory epochs, uint256 count) {
+        uint256[] memory tmp = new uint256[](maxEpochs);
+        count = 0;
+        for (uint256 e = 0; e < MAX_TURBO_EPOCHS && count < maxEpochs; e++) {
+            if (_docsInEpoch[e] > 0) {
+                tmp[count] = e;
+                count++;
+            }
+        }
+        epochs = new uint256[](count);
+        for (uint256 i = 0; i < count; i++) epochs[i] = tmp[i];
+    }
+
+    function getFreeCellSlotCount() external view returns (uint256) {
+        uint256 used = 0;
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (_cellSlots[i].exists) used++;
+        }
+        return TURBO_CELL_SLOTS - used;
+    }
+
+    function getFreeInboxSlotCount() external view returns (uint256) {
+        uint256 used = 0;
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists) used++;
+        }
+        return TURBO_INBOX_SLOTS - used;
+    }
+
+    function getUsedCellSlotCount() external view returns (uint256) {
+        uint256 used = 0;
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (_cellSlots[i].exists) used++;
+        }
+        return used;
+    }
+
+    function getUsedInboxSlotCount() external view returns (uint256) {
+        uint256 used = 0;
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
