@@ -856,3 +856,81 @@ contract OffClawTurboXX is ReentrancyGuard {
     function hasDocTag(bytes32 docId, uint256 tagIndex, bytes32 tagValue) external view returns (bool) {
         if (_docs[docId].enqueuedAtBlock == 0) revert OffClawTurbo_DocNotFound();
         if (tagIndex >= MAX_TAGS) return false;
+        return _docs[docId].tags[tagIndex] == tagValue;
+    }
+
+    function getCellsBySheetAppRange(uint8 sheetApp, uint256 offset, uint256 limit) external view returns (
+        bytes32[] memory refs,
+        uint256[] memory loggedAtBlocks,
+        bytes32[] memory valueHashes
+    ) {
+        uint256[] memory indices = new uint256[](TURBO_CELL_SLOTS);
+        uint256 count = 0;
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (_cellSlots[i].exists && _cellSlots[i].sheetApp == sheetApp) {
+                indices[count] = i;
+                count++;
+            }
+        }
+        if (offset >= count) {
+            refs = new bytes32[](0);
+            loggedAtBlocks = new uint256[](0);
+            valueHashes = new bytes32[](0);
+            return (refs, loggedAtBlocks, valueHashes);
+        }
+        if (offset + limit > count) limit = count - offset;
+        refs = new bytes32[](limit);
+        loggedAtBlocks = new uint256[](limit);
+        valueHashes = new bytes32[](limit);
+        for (uint256 i = 0; i < limit; i++) {
+            uint256 idx = indices[offset + i];
+            refs[i] = _cellSlots[idx].cellRef;
+            loggedAtBlocks[i] = _cellSlots[idx].loggedAtBlock;
+            valueHashes[i] = _cellSlots[idx].valueHash;
+        }
+    }
+
+    function totalCellsForSheetApp(uint8 sheetApp) external view returns (uint256 count) {
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (_cellSlots[i].exists && _cellSlots[i].sheetApp == sheetApp) count++;
+        }
+    }
+
+    function totalInboxForType(uint8 inboxType) external view returns (uint256 count) {
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists && _inboxSlots[i].inboxType == inboxType) count++;
+        }
+    }
+
+    function getInboxIdsByType(uint8 inboxType) external view returns (bytes32[] memory slotIds) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists && _inboxSlots[i].inboxType == inboxType) count++;
+        }
+        slotIds = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists && _inboxSlots[i].inboxType == inboxType) {
+                slotIds[count] = _inboxSlots[i].slotId;
+                count++;
+            }
+        }
+    }
+
+    function firstPendingDocId() external view returns (bytes32 docId, bool found) {
+        uint256 n = _docIdList.length;
+        for (uint256 i = 0; i < n; i++) {
+            if (!_docs[_docIdList[i]].processed) return (_docIdList[i], true);
+        }
+        return (bytes32(0), false);
+    }
+
+    function lastEnqueuedDocId() external view returns (bytes32) {
+        if (_docIdList.length == 0) revert OffClawTurbo_DocNotFound();
+        return _docIdList[_docIdList.length - 1];
+    }
+
+    function lastCellRef() external view returns (bytes32) {
+        if (_cellRefList.length == 0) return bytes32(0);
+        return _cellRefList[_cellRefList.length - 1];
+    }
