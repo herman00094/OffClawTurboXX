@@ -1636,3 +1636,72 @@ contract OffClawTurboXX is ReentrancyGuard {
         uint256 loggedAtBlock,
         bytes32 valueHash
     ) {
+        if (slotIndex >= TURBO_CELL_SLOTS || !_cellSlots[slotIndex].exists) revert OffClawTurbo_DocNotFound();
+        TurboCellSlot storage c = _cellSlots[slotIndex];
+        cellRef = c.cellRef;
+        sheetApp = c.sheetApp;
+        loggedAtBlock = c.loggedAtBlock;
+        valueHash = c.valueHash;
+    }
+
+    function getInboxBySlotOrRevert(uint256 slotIndex) external view returns (
+        bytes32 slotId,
+        address reservedBy,
+        uint8 inboxType,
+        uint256 reservedAtBlock
+    ) {
+        if (slotIndex >= TURBO_INBOX_SLOTS || !_inboxSlots[slotIndex].exists) revert OffClawTurbo_DocNotFound();
+        TurboInboxSlot storage s = _inboxSlots[slotIndex];
+        slotId = s.slotId;
+        reservedBy = s.reservedBy;
+        inboxType = s.inboxType;
+        reservedAtBlock = s.reservedAtBlock;
+    }
+
+    function getDocIdListFull() external view returns (bytes32[] memory) {
+        return _docIdList;
+    }
+
+    function getCellRefListFull() external view returns (bytes32[] memory) {
+        return _cellRefList;
+    }
+
+    function getInboxIdListFull() external view returns (bytes32[] memory) {
+        return _inboxIdList;
+    }
+
+    function getEpochDocCount(uint256 epoch) external view returns (uint256) {
+        return _docsInEpoch[epoch];
+    }
+
+    function getDomainSeparator() external pure returns (bytes32) {
+        return TURBO_DOMAIN;
+    }
+
+    function getMaxEpochs() external pure returns (uint256) {
+        return MAX_TURBO_EPOCHS;
+    }
+
+    function getEpochLengthBlocks() external pure returns (uint256) {
+        return TURBO_EPOCH_BLOCKS;
+    }
+
+    function isDocIdInList(bytes32 docId) external view returns (bool) {
+        return _docExists(docId);
+    }
+
+    function isCellRefInList(bytes32 cellRef) external view returns (bool) {
+        for (uint256 i = 0; i < _cellRefList.length; i++) {
+            if (_cellRefList[i] == cellRef) return true;
+        }
+        return false;
+    }
+
+    function isInboxIdInList(bytes32 slotId) external view returns (bool) {
+        for (uint256 i = 0; i < _inboxIdList.length; i++) {
+            if (_inboxIdList[i] == slotId) return true;
+        }
+        return false;
+    }
+}
+
