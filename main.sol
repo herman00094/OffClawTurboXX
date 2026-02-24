@@ -1558,3 +1558,81 @@ contract OffClawTurboXX is ReentrancyGuard {
     function getUsedInboxSlotCount() external view returns (uint256) {
         uint256 used = 0;
         for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists) used++;
+        }
+        return used;
+    }
+
+    function supportsEther() external pure returns (bool) { return true; }
+    function supportsTurboTreasury() external pure returns (bool) { return true; }
+    function supportsFees() external pure returns (bool) { return true; }
+    function supportsPause() external pure returns (bool) { return true; }
+    function supportsBatchEnqueue() external pure returns (bool) { return true; }
+    function supportsBatchCells() external pure returns (bool) { return true; }
+    function supportsBatchInbox() external pure returns (bool) { return true; }
+    function supportsTags() external pure returns (bool) { return true; }
+    function supportsDeprecation() external pure returns (bool) { return true; }
+    function supportsDocUpdate() external pure returns (bool) { return true; }
+
+    /// @notice Returns a packed status: (paused ? 1 : 0) | (canEnqueue ? 2 : 0) | (canBumpEpoch ? 4 : 0).
+    function getStatusFlags() external view returns (uint8 flags) {
+        if (paused) flags |= 1;
+        if (!paused && _docsInEpoch[currentEpoch] < TURBO_DOC_CAP_PER_EPOCH) flags |= 2;
+        if (_canBumpEpoch()) flags |= 4;
+    }
+
+    function getCapacities() external view returns (
+        uint256 docCapPerEpoch,
+        uint256 cellSlotsTotal,
+        uint256 inboxSlotsTotal,
+        uint256 docsUsedThisEpoch,
+        uint256 cellsUsed,
+        uint256 inboxUsed
+    ) {
+        docCapPerEpoch = TURBO_DOC_CAP_PER_EPOCH;
+        cellSlotsTotal = TURBO_CELL_SLOTS;
+        inboxSlotsTotal = TURBO_INBOX_SLOTS;
+        docsUsedThisEpoch = _docsInEpoch[currentEpoch];
+        cellsUsed = _cellRefList.length;
+        inboxUsed = _inboxIdList.length;
+    }
+
+    function getFeeConfig() external pure returns (uint256 feeBasisPoints, uint256 basisDenom) {
+        feeBasisPoints = FEE_BASIS_POINTS;
+        basisDenom = BASIS_DENOM;
+    }
+
+    function getBatchLimits() external pure returns (uint256 maxDocs, uint256 maxCells, uint256 maxSlots) {
+        maxDocs = MAX_BATCH_DOCS;
+        maxCells = MAX_BATCH_CELLS;
+        maxSlots = MAX_BATCH_SLOTS;
+    }
+
+    function getDocByIdOrRevert(bytes32 docId) external view returns (
+        address enqueuedBy,
+        uint8 docType,
+        uint256 queueEpoch,
+        uint256 enqueuedAtBlock,
+        bytes32 payloadHash,
+        bool processed,
+        bool deprecated,
+        uint256 updatedAtBlock
+    ) {
+        if (!_docExists(docId)) revert OffClawTurbo_DocNotFound();
+        TurboDoc storage d = _docs[docId];
+        enqueuedBy = d.enqueuedBy;
+        docType = d.docType;
+        queueEpoch = d.queueEpoch;
+        enqueuedAtBlock = d.enqueuedAtBlock;
+        payloadHash = d.payloadHash;
+        processed = d.processed;
+        deprecated = d.deprecated;
+        updatedAtBlock = d.updatedAtBlock;
+    }
+
+    function getCellBySlotOrRevert(uint256 slotIndex) external view returns (
+        bytes32 cellRef,
+        uint8 sheetApp,
+        uint256 loggedAtBlock,
+        bytes32 valueHash
+    ) {
