@@ -934,3 +934,81 @@ contract OffClawTurboXX is ReentrancyGuard {
         if (_cellRefList.length == 0) return bytes32(0);
         return _cellRefList[_cellRefList.length - 1];
     }
+
+    function lastInboxId() external view returns (bytes32) {
+        if (_inboxIdList.length == 0) return bytes32(0);
+        return _inboxIdList[_inboxIdList.length - 1];
+    }
+
+    function isPaused() external view returns (bool) { return paused; }
+    function getTotalDocsQueued() external view returns (uint256) { return totalDocsQueued; }
+    function getTotalCellsLogged() external view returns (uint256) { return totalCellsLogged; }
+    function getTotalSlotsReserved() external view returns (uint256) { return totalSlotsReserved; }
+    function getTurboBalance() external view returns (uint256) { return turboBalance; }
+    function getAccumulatedFees() external view returns (uint256) { return accumulatedFees; }
+    function getGenesisBlockNum() external view returns (uint256) { return genesisBlock; }
+    function getTurboSeedHash() external view returns (bytes32) { return turboSeed; }
+    function getCurrentEpochNum() external view returns (uint256) { return currentEpoch; }
+    function getPausedStatus() external view returns (bool) { return paused; }
+    function getTurboGovernor() external view returns (address) { return turboGovernor; }
+    function getTurboQueueKeeper() external view returns (address) { return turboQueueKeeper; }
+    function getTurboSheetOracle() external view returns (address) { return turboSheetOracle; }
+    function getTurboInboxVault() external view returns (address) { return turboInboxVault; }
+    function getTurboFeeRecipient() external view returns (address) { return turboFeeRecipient; }
+    function version() external pure returns (string memory) { return "OffClawTurboXX-V2"; }
+    function contractName() external pure returns (string memory) { return "OffClawTurboXX"; }
+
+    // ---------- Internal view helpers (used by views / future extensions) ----------
+    function _docExists(bytes32 docId) internal view returns (bool) {
+        return _docs[docId].enqueuedAtBlock != 0;
+    }
+
+    function _docProcessed(bytes32 docId) internal view returns (bool) {
+        return _docs[docId].processed;
+    }
+
+    function _docDeprecated(bytes32 docId) internal view returns (bool) {
+        return _docs[docId].deprecated;
+    }
+
+    function _cellSlotUsed(uint256 slotIndex) internal view returns (bool) {
+        return slotIndex < TURBO_CELL_SLOTS && _cellSlots[slotIndex].exists;
+    }
+
+    function _inboxSlotUsed(uint256 slotIndex) internal view returns (bool) {
+        return slotIndex < TURBO_INBOX_SLOTS && _inboxSlots[slotIndex].exists;
+    }
+
+    function _epochDocsUsed(uint256 epoch) internal view returns (uint256) {
+        return _docsInEpoch[epoch];
+    }
+
+    function _safeDocType(uint8 t) internal pure returns (bool) {
+        return t <= MAX_DOC_TYPE;
+    }
+
+    function _computeDocId(address sender, bytes32 payloadHash, uint256 nonce) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(sender, payloadHash, nonce));
+    }
+
+    function _computeCellRef(uint8 sheetApp, uint256 row, uint256 col) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(sheetApp, row, col));
+    }
+
+    function _computeSlotId(address owner, uint8 inboxType, uint256 nonce) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(owner, inboxType, nonce));
+    }
+
+    function _feeAmount(uint256 value) internal pure returns (uint256) {
+        return (value * FEE_BASIS_POINTS) / BASIS_DENOM;
+    }
+
+    function _netAfterFee(uint256 value) internal pure returns (uint256) {
+        return value - _feeAmount(value);
+    }
+
+    /// Returns whether the current block is within the epoch window for bumping.
+    function _canBumpEpoch() internal view returns (bool) {
+        return block.number >= genesisBlock + (currentEpoch + 1) * TURBO_EPOCH_BLOCKS
+            && currentEpoch < MAX_TURBO_EPOCHS - 1;
+    }
