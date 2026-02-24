@@ -1402,3 +1402,81 @@ contract OffClawTurboXX is ReentrancyGuard {
             if (_docs[_docIdList[i]].enqueuedBy == enqueuedBy) count++;
         }
         return count;
+    }
+
+    function countInboxSlotsReservedBy(address reservedBy) external view returns (uint256) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists && _inboxSlots[i].reservedBy == reservedBy) count++;
+        }
+        return count;
+    }
+
+    function getNextEpochBlock() external view returns (uint256) {
+        return genesisBlock + (currentEpoch + 1) * TURBO_EPOCH_BLOCKS;
+    }
+
+    function blocksUntilNextEpoch() external view returns (uint256) {
+        uint256 next = genesisBlock + (currentEpoch + 1) * TURBO_EPOCH_BLOCKS;
+        if (block.number >= next) return 0;
+        return next - block.number;
+    }
+
+    function getEpochBlockRange(uint256 epoch) external view returns (uint256 startBlock, uint256 endBlock) {
+        startBlock = genesisBlock + epoch * TURBO_EPOCH_BLOCKS;
+        endBlock = genesisBlock + (epoch + 1) * TURBO_EPOCH_BLOCKS - 1;
+    }
+
+    function currentBlockInEpoch() external view returns (uint256 blockOffset) {
+        uint256 epochStart = genesisBlock + currentEpoch * TURBO_EPOCH_BLOCKS;
+        if (block.number < epochStart) return 0;
+        return block.number - epochStart;
+    }
+
+    function getDocIdsWithTag(uint256 tagIndex, bytes32 tagValue) external view returns (bytes32[] memory docIds) {
+        if (tagIndex >= MAX_TAGS) return new bytes32[](0);
+        uint256 n = _docIdList.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].tags[tagIndex] == tagValue) count++;
+        }
+        docIds = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].tags[tagIndex] == tagValue) {
+                docIds[count] = _docIdList[i];
+                count++;
+            }
+        }
+    }
+
+    function getDocIdsUpdatedAfterBlock(uint256 afterBlock) external view returns (bytes32[] memory docIds) {
+        uint256 n = _docIdList.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            TurboDoc storage d = _docs[_docIdList[i]];
+            if (d.updatedAtBlock != 0 && d.updatedAtBlock > afterBlock) count++;
+        }
+        docIds = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            TurboDoc storage d = _docs[_docIdList[i]];
+            if (d.updatedAtBlock != 0 && d.updatedAtBlock > afterBlock) {
+                docIds[count] = _docIdList[i];
+                count++;
+            }
+        }
+    }
+
+    function getDocIdsEnqueuedAfterBlock(uint256 afterBlock) external view returns (bytes32[] memory docIds) {
+        uint256 n = _docIdList.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].enqueuedAtBlock > afterBlock) count++;
+        }
+        docIds = new bytes32[](count);
+        count = 0;
+        for (uint256 i = 0; i < n; i++) {
+            if (_docs[_docIdList[i]].enqueuedAtBlock > afterBlock) {
+                docIds[count] = _docIdList[i];
+                count++;
