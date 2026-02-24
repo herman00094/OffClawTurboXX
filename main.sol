@@ -1090,3 +1090,81 @@ contract OffClawTurboXX is ReentrancyGuard {
     }
 
     function feeAmountView(uint256 value) external pure returns (uint256) {
+        return _feeAmount(value);
+    }
+
+    function netAfterFeeView(uint256 value) external pure returns (uint256) {
+        return _netAfterFee(value);
+    }
+
+    function canBumpEpochView() external view returns (bool) {
+        return _canBumpEpoch();
+    }
+
+    function epochHasCapacityView() external view returns (bool) {
+        return _epochHasCapacity();
+    }
+
+    function firstFreeCellSlotView() external view returns (uint256 index, bool found) {
+        return _firstFreeCellSlot();
+    }
+
+    function firstFreeInboxSlotView() external view returns (uint256 index, bool found) {
+        return _firstFreeInboxSlot();
+    }
+
+    function getDocIdAt(uint256 index) external view returns (bytes32) {
+        if (index >= _docIdList.length) revert OffClawTurbo_DocNotFound();
+        return _docIdList[index];
+    }
+
+    function getCellRefAt(uint256 index) external view returns (bytes32) {
+        if (index >= _cellRefList.length) return bytes32(0);
+        return _cellRefList[index];
+    }
+
+    function getInboxIdAt(uint256 index) external view returns (bytes32) {
+        if (index >= _inboxIdList.length) return bytes32(0);
+        return _inboxIdList[index];
+    }
+
+    function docIdListLength() external view returns (uint256) { return _docIdList.length; }
+    function cellRefListLength() external view returns (uint256) { return _cellRefList.length; }
+    function inboxIdListLength() external view returns (uint256) { return _inboxIdList.length; }
+
+    function getTurboDomain() external pure returns (bytes32) { return TURBO_DOMAIN; }
+    function getMaxDocType() external pure returns (uint256) { return MAX_DOC_TYPE; }
+    function getMaxTags() external pure returns (uint256) { return MAX_TAGS; }
+    function getMaxBatchDocs() external pure returns (uint256) { return MAX_BATCH_DOCS; }
+    function getMaxBatchCells() external pure returns (uint256) { return MAX_BATCH_CELLS; }
+    function getMaxBatchSlots() external pure returns (uint256) { return MAX_BATCH_SLOTS; }
+
+    /// Paginated doc IDs (offset, limit).
+    function getDocIdListPaginated(uint256 offset, uint256 limit) external view returns (bytes32[] memory docIds) {
+        uint256 total = _docIdList.length;
+        if (offset >= total) return new bytes32[](0);
+        if (offset + limit > total) limit = total - offset;
+        docIds = new bytes32[](limit);
+        for (uint256 i = 0; i < limit; i++) docIds[i] = _docIdList[offset + i];
+    }
+
+    /// Paginated cell refs (offset, limit).
+    function getCellRefListPaginated(uint256 offset, uint256 limit) external view returns (bytes32[] memory refs) {
+        uint256 total = _cellRefList.length;
+        if (offset >= total) return new bytes32[](0);
+        if (offset + limit > total) limit = total - offset;
+        refs = new bytes32[](limit);
+        for (uint256 i = 0; i < limit; i++) refs[i] = _cellRefList[offset + i];
+    }
+
+    /// Paginated inbox IDs (offset, limit).
+    function getInboxIdListPaginated(uint256 offset, uint256 limit) external view returns (bytes32[] memory ids) {
+        uint256 total = _inboxIdList.length;
+        if (offset >= total) return new bytes32[](0);
+        if (offset + limit > total) limit = total - offset;
+        ids = new bytes32[](limit);
+        for (uint256 i = 0; i < limit; i++) ids[i] = _inboxIdList[offset + i];
+    }
+
+    function getDocIdsInEpochRange(uint256 epochStart, uint256 epochEnd) external view returns (bytes32[] memory docIds) {
+        uint256 n = _docIdList.length;
