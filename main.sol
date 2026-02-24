@@ -622,3 +622,81 @@ contract OffClawTurboXX is ReentrancyGuard {
 
     function findInboxSlotById(bytes32 slotId) external view returns (uint256 slotIndex, bool found) {
         for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists && _inboxSlots[i].slotId == slotId) return (i, true);
+        }
+        return (0, false);
+    }
+
+    function getCellByRef(bytes32 cellRef) external view returns (
+        bytes32 ref, uint8 sheetApp, uint256 loggedAtBlock, bytes32 valueHash
+    ) {
+        for (uint256 i = 0; i < TURBO_CELL_SLOTS; i++) {
+            if (_cellSlots[i].exists && _cellSlots[i].cellRef == cellRef) {
+                TurboCellSlot storage c = _cellSlots[i];
+                return (c.cellRef, c.sheetApp, c.loggedAtBlock, c.valueHash);
+            }
+        }
+        revert OffClawTurbo_DocNotFound();
+    }
+
+    function getInboxBySlotId(bytes32 slotId) external view returns (
+        bytes32 id, address reservedBy, uint8 inboxType, uint256 reservedAtBlock
+    ) {
+        for (uint256 i = 0; i < TURBO_INBOX_SLOTS; i++) {
+            if (_inboxSlots[i].exists && _inboxSlots[i].slotId == slotId) {
+                TurboInboxSlot storage s = _inboxSlots[i];
+                return (s.slotId, s.reservedBy, s.inboxType, s.reservedAtBlock);
+            }
+        }
+        revert OffClawTurbo_DocNotFound();
+    }
+
+    struct TurboSnapshot {
+        TurboStats stats;
+        bytes32[] docIds;
+        bytes32[] cellRefs;
+        bytes32[] inboxIds;
+        uint256 blockNumber;
+    }
+
+    function getTurboSnapshot(uint256 maxDocs, uint256 maxCells, uint256 maxInbox) external view returns (
+        uint256 totalDocs,
+        uint256 totalCells,
+        uint256 totalInbox,
+        uint256 epoch,
+        uint256 balance,
+        uint256 fees,
+        bool isPaused,
+        bytes32[] memory docIdsSample,
+        bytes32[] memory cellRefsSample,
+        bytes32[] memory inboxIdsSample,
+        uint256 blockNum
+    ) {
+        totalDocs = _docIdList.length;
+        totalCells = _cellRefList.length;
+        totalInbox = _inboxIdList.length;
+        epoch = currentEpoch;
+        balance = turboBalance;
+        fees = accumulatedFees;
+        isPaused = paused;
+        blockNum = block.number;
+        if (maxDocs > totalDocs) maxDocs = totalDocs;
+        if (maxCells > totalCells) maxCells = totalCells;
+        if (maxInbox > totalInbox) maxInbox = totalInbox;
+        docIdsSample = new bytes32[](maxDocs);
+        cellRefsSample = new bytes32[](maxCells);
+        inboxIdsSample = new bytes32[](maxInbox);
+        for (uint256 i = 0; i < maxDocs; i++) docIdsSample[i] = _docIdList[i];
+        for (uint256 i = 0; i < maxCells; i++) cellRefsSample[i] = _cellRefList[i];
+        for (uint256 i = 0; i < maxInbox; i++) inboxIdsSample[i] = _inboxIdList[i];
+    }
+
+    function canEnqueueInCurrentEpoch() external view returns (bool) {
+        return !paused && _docsInEpoch[currentEpoch] < TURBO_DOC_CAP_PER_EPOCH;
+    }
+
+    function docsRemainingInEpoch() external view returns (uint256) {
+        uint256 cap = TURBO_DOC_CAP_PER_EPOCH;
+        uint256 used = _docsInEpoch[currentEpoch];
+        if (used >= cap) return 0;
+        return cap - used;
